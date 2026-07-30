@@ -29,12 +29,12 @@ export function SiteHeader() {
     <header
       className={cn(
         'sticky top-0 z-50 w-full border-b border-transparent bg-background/80 backdrop-blur-xl transition-colors duration-200',
-        scrolled && 'border-border',
+        scrolled && 'border-border'
       )}
     >
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
         <a
-          href="#"
+          href="/"
           className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <Logo />
@@ -60,14 +60,15 @@ export function SiteHeader() {
           <Button
             variant="ghost"
             nativeButton={false}
-            render={<a href="#pricing" />}
+            render={<a href="/login" />}
             className="h-9 px-3 text-muted-foreground hover:text-foreground"
           >
             Log in
           </Button>
+
           <Button
             nativeButton={false}
-            render={<a href="#pricing" />}
+            render={<a href="/signup" />}
             className="h-9 rounded-xl px-4"
           >
             Get started
@@ -87,7 +88,7 @@ export function SiteHeader() {
         </Button>
       </div>
 
-      {open ? (
+      {open && (
         <div id="mobile-nav" className="border-t border-border md:hidden">
           <nav aria-label="Mobile" className="mx-auto max-w-6xl px-6 py-4">
             <ul className="flex flex-col gap-1">
@@ -103,18 +104,20 @@ export function SiteHeader() {
                 </li>
               ))}
             </ul>
+
             <div className="mt-4 flex flex-col gap-2">
               <Button
                 variant="outline"
                 nativeButton={false}
-                render={<a href="#pricing" />}
+                render={<a href="/login" />}
                 className="h-10 rounded-xl"
               >
                 Log in
               </Button>
+
               <Button
                 nativeButton={false}
-                render={<a href="#pricing" />}
+                render={<a href="/signup" />}
                 className="h-10 rounded-xl"
               >
                 Get started
@@ -122,7 +125,7 @@ export function SiteHeader() {
             </div>
           </nav>
         </div>
-      ) : null}
+      )}
     </header>
   )
 }
