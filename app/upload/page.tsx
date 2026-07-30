@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Tesseract from 'tesseract.js'
+import axios from 'axios'
 import { supabase } from '@/lib/supabase'
 
 export default function UploadPage() {
@@ -35,8 +35,25 @@ export default function UploadPage() {
         return
       }
 
-      const result = await Tesseract.recognize(file, 'eng')
-      const extractedText = result.data.text
+      const formData = new FormData()
+
+      formData.append('file', file)
+      formData.append('apikey', process.env.NEXT_PUBLIC_OCR_SPACE_API_KEY!)
+      formData.append('language', 'eng')
+      formData.append('isOverlayRequired', 'false')
+
+      const response = await axios.post(
+        'https://api.ocr.space/parse/image',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      )
+
+      const extractedText =
+        response.data?.ParsedResults?.[0]?.ParsedText ?? ''
 
       const fileName = `${user.id}/${Date.now()}-${file.name}`
 
