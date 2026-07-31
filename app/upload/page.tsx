@@ -76,9 +76,9 @@ export default function UploadPage() {
 
       router.push('/dashboard')
       router.refresh()
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
-      alert('Failed to upload lecture.')
+      alert(error?.message || JSON.stringify(error))
     } finally {
       setLoading(false)
     }
