@@ -36,25 +36,12 @@ export default function UploadPage() {
       }
 
       const formData = new FormData()
-
       formData.append('file', file)
-      formData.append('apikey', process.env.NEXT_PUBLIC_OCR_SPACE_API_KEY!)
-      formData.append('language', 'eng')
-      formData.append('isOverlayRequired', 'false')
 
-      const response = await axios.post(
-        'https://api.ocr.space/parse/image',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
-      )
+      const response = await axios.post('/api/ocr', formData)
 
-      const extractedText =
-        response.data?.ParsedResults?.[0]?.ParsedText ?? ''
-
+      const extractedText = response.data.text
+      
       const fileName = `${user.id}/${Date.now()}-${file.name}`
 
       const { error: uploadError } = await supabase.storage
