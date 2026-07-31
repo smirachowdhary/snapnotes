@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -33,13 +34,13 @@ export function SiteHeader() {
       )}
     >
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
-        <a
+        <Link
           href="/"
           className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <Logo />
           <span className="sr-only">SnapNotes home</span>
-        </a>
+        </Link>
 
         <nav aria-label="Main" className="hidden md:block">
           <ul className="flex items-center gap-1">
@@ -47,7 +48,7 @@ export function SiteHeader() {
               <li key={link.href}>
                 <a
                   href={link.href}
-                  className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  className="rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {link.label}
                 </a>
@@ -60,7 +61,7 @@ export function SiteHeader() {
           <Button
             variant="ghost"
             nativeButton={false}
-            render={<a href="/login" />}
+            render={<Link href="/login" />}
             className="h-9 px-3 text-muted-foreground hover:text-foreground"
           >
             Log in
@@ -68,7 +69,7 @@ export function SiteHeader() {
 
           <Button
             nativeButton={false}
-            render={<a href="/signup" />}
+            render={<Link href="/signup" />}
             className="h-9 rounded-xl px-4"
           >
             Get started
@@ -78,26 +79,23 @@ export function SiteHeader() {
         <Button
           variant="ghost"
           size="icon-lg"
-          aria-expanded={open}
-          aria-controls="mobile-nav"
           onClick={() => setOpen((v) => !v)}
           className="md:hidden"
         >
           {open ? <X /> : <Menu />}
-          <span className="sr-only">Toggle navigation</span>
         </Button>
       </div>
 
       {open && (
-        <div id="mobile-nav" className="border-t border-border md:hidden">
-          <nav aria-label="Mobile" className="mx-auto max-w-6xl px-6 py-4">
+        <div className="border-t border-border md:hidden">
+          <nav className="mx-auto max-w-6xl px-6 py-4">
             <ul className="flex flex-col gap-1">
               {links.map((link) => (
                 <li key={link.href}>
                   <a
                     href={link.href}
                     onClick={() => setOpen(false)}
-                    className="block rounded-lg px-2 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="block rounded-lg px-2 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                   >
                     {link.label}
                   </a>
@@ -109,7 +107,7 @@ export function SiteHeader() {
               <Button
                 variant="outline"
                 nativeButton={false}
-                render={<a href="/login" />}
+                render={<Link href="/login" />}
                 className="h-10 rounded-xl"
               >
                 Log in
@@ -117,7 +115,7 @@ export function SiteHeader() {
 
               <Button
                 nativeButton={false}
-                render={<a href="/signup" />}
+                render={<Link href="/signup" />}
                 className="h-10 rounded-xl"
               >
                 Get started
