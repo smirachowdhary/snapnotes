@@ -40,8 +40,15 @@ export default function UploadPage() {
 
       const response = await axios.post('/api/ocr', formData)
 
-      const extractedText = response.data.text
-      
+      console.log('OCR API Response:', response.data)
+
+      const extractedText =
+        response.data.text ??
+        response.data?.ParsedResults?.[0]?.ParsedText ??
+        ''
+
+      console.log('Extracted Text:', extractedText)
+
       const fileName = `${user.id}/${Date.now()}-${file.name}`
 
       const { error: uploadError } = await supabase.storage
@@ -65,7 +72,7 @@ export default function UploadPage() {
       router.refresh()
     } catch (error: any) {
       console.error(error)
-      alert(error?.message || JSON.stringify(error))
+      alert(error?.message || 'Upload failed')
     } finally {
       setLoading(false)
     }
