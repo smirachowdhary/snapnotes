@@ -19,9 +19,9 @@ export async function POST(req: Request) {
       )
     }
 
-    // -----------------------
-    // Improve image for OCR
-    // -----------------------
+    // -------------------------
+    // Image preprocessing
+    // -------------------------
 
     const buffer = Buffer.from(await file.arrayBuffer())
 
@@ -38,9 +38,9 @@ export async function POST(req: Request) {
       .png()
       .toBuffer()
 
-    // -----------------------
+    // -------------------------
     // OCR.space
-    // -----------------------
+    // -------------------------
 
     const formData = new FormData()
 
@@ -77,49 +77,55 @@ export async function POST(req: Request) {
       })
     }
 
-    // -----------------------
-    // Gemini Cleanup
-    // -----------------------
+    // -------------------------
+    // Gemini cleanup
+    // -------------------------
 
-    const gemini = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `
+    try {
+      const result = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: `
 You are cleaning OCR extracted lecture notes.
 
 Rules:
-
 - Never invent information.
 - Never remove information.
 - Fix OCR mistakes.
 - Fix capitalization.
 - Fix punctuation.
-- Restore headings.
-- Restore numbered lists.
-- Restore bullet points.
-- Preserve equations.
-- Preserve scientific notation.
-- Preserve indentation.
-- Return ONLY the cleaned lecture notes.
+- Preserve headings.
+- Preserve numbered lists.
+- Preserve bullet points.
+- Preserve equations exactly.
+- Preserve spacing where possible.
+
+Return ONLY the cleaned lecture notes.
 
 OCR:
 
 ${rawText}
 `,
-    })
+      })
 
-    const cleaned =
-      gemini.text?.trim() ||
-      rawText
+      return NextResponse.json({
+        text: result.text?.trim() || rawText,
+      })
+    } catch (err: any) {
+      console.error('GEMINI ERROR')
+      console.error(JSON.stringify(err, null, 2))
 
-    return NextResponse.json({
-      text: cleaned,
-    })
-  } catch (err) {
+      // Fall back to raw OCR if Gemini fails
+      return NextResponse.json({
+        text: rawText,
+      })
+    }
+  } catch (err: any) {
+    console.error('SERVER ERROR')
     console.error(err)
 
     return NextResponse.json(
       {
-        error: 'OCR failed',
+        error: err.message,
       },
       {
         status: 500,
