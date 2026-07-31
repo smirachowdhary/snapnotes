@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     }
 
     // -------------------------
-    // Image preprocessing
+    // Preprocess image
     // -------------------------
 
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -46,9 +46,7 @@ export async function POST(req: Request) {
 
     formData.append(
       'file',
-      new Blob([processed], {
-        type: 'image/png',
-      }),
+      new Blob([processed], { type: 'image/png' }),
       'lecture.png'
     )
 
@@ -85,23 +83,16 @@ export async function POST(req: Request) {
       const result = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: `
-You are cleaning OCR extracted lecture notes.
+You are cleaning OCR lecture notes.
 
 Rules:
 - Never invent information.
 - Never remove information.
-- Fix OCR mistakes.
-- Fix capitalization.
-- Fix punctuation.
-- Preserve headings.
-- Preserve numbered lists.
-- Preserve bullet points.
-- Preserve equations exactly.
-- Preserve spacing where possible.
-
-Return ONLY the cleaned lecture notes.
-
-OCR:
+- Correct OCR mistakes only.
+- Preserve bullets.
+- Preserve numbering.
+- Preserve formatting.
+- Return ONLY the cleaned notes.
 
 ${rawText}
 `,
@@ -111,10 +102,38 @@ ${rawText}
         text: result.text?.trim() || rawText,
       })
     } catch (err: any) {
+      console.error('==============================')
       console.error('GEMINI ERROR')
-      console.error(JSON.stringify(err, null, 2))
+      console.error('message:', err?.message)
+      console.error('status:', err?.status)
+      console.error('name:', err?.name)
+      console.error('stack:', err?.stack)
 
-      // Fall back to raw OCR if Gemini fails
+      if (err?.error) {
+        console.error(
+          'error:',
+          JSON.stringify(err.error, null, 2)
+        )
+      }
+
+      if (err?.cause) {
+        console.error(
+          'cause:',
+          JSON.stringify(err.cause, null, 2)
+        )
+      }
+
+      console.error(
+        'FULL OBJECT:',
+        JSON.stringify(
+          err,
+          Object.getOwnPropertyNames(err),
+          2
+        )
+      )
+      console.error('==============================')
+
+      // Return OCR anyway
       return NextResponse.json({
         text: rawText,
       })
@@ -125,7 +144,7 @@ ${rawText}
 
     return NextResponse.json(
       {
-        error: err.message,
+        error: err?.message || 'Unknown server error',
       },
       {
         status: 500,
