@@ -14,21 +14,25 @@ export async function POST(req: Request) {
 
   const formData = new FormData()
   formData.append('file', file)
+  formData.append('apikey', process.env.OCR_SPACE_API_KEY!)
   formData.append('language', 'eng')
   formData.append('isOverlayRequired', 'false')
   formData.append('OCREngine', '2')
 
   const response = await fetch('https://api.ocr.space/parse/image', {
     method: 'POST',
-    headers: {
-      apikey: process.env.OCR_SPACE_API_KEY!,
-    },
     body: formData,
   })
 
   const result = await response.json()
 
   console.log(result)
+
+  if (!response.ok) {
+    return NextResponse.json(result, {
+      status: response.status,
+    })
+  }
 
   return NextResponse.json({
     text: result?.ParsedResults?.[0]?.ParsedText ?? '',
