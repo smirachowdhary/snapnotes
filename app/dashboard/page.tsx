@@ -8,9 +8,17 @@ import { supabase } from '@/lib/supabase'
 type Lecture = {
   id: string
   title: string
-  subject: string | null
+  notes: string
+  summary: string
   ocr_text: string
   created_at: string
+
+  subjects: {
+    id: string
+    name: string
+    icon: string
+    color: string
+  } | null
 }
 
 export default function DashboardPage() {
@@ -40,7 +48,15 @@ export default function DashboardPage() {
 
     const { data, error } = await supabase
       .from('lectures')
-      .select('*')
+      .select(`
+        *,
+        subjects (
+          id,
+          name,
+          icon,
+          color
+        )
+      `)
       .order('created_at', { ascending: false })
 
     if (!error && data) {
@@ -63,7 +79,7 @@ export default function DashboardPage() {
     return lectures.filter(
       (lecture) =>
         lecture.title.toLowerCase().includes(q) ||
-        lecture.subject?.toLowerCase().includes(q) ||
+        lecture.subjects?.name.toLowerCase().includes(q) ||
         lecture.ocr_text.toLowerCase().includes(q)
     )
   }, [lectures, search])
@@ -75,16 +91,16 @@ export default function DashboardPage() {
 
     filtered.forEach((lecture) => {
       const subject =
-        lecture.subject && lecture.subject.trim().length > 0
-          ? lecture.subject
-          : 'Uncategorized'
+        lecture.subjects?.name || 'Other'
 
-      if (!groups[subject]) groups[subject] = []
+      if (!groups[subject]) {
+        groups[subject] = []
+      }
 
       groups[subject].push(lecture)
     })
 
-    return Object.entries(groups).sort((a, b) => b[1].length - a[1].length)
+    return Object.entries(groups)
   }, [filtered])
 
   return (
@@ -146,7 +162,7 @@ export default function DashboardPage() {
             <Link href={`/lectures/${recent.id}`}>
               <div className="rounded-2xl bg-white p-6 shadow transition hover:shadow-lg">
                 <div className="mb-3 inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
-                  {recent.subject || 'Uncategorized'}
+                  {recent.subjects?.name || 'Other'}
                 </div>
 
                 <h3 className="text-2xl font-bold">

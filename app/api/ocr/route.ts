@@ -132,6 +132,7 @@ export async function POST(req: Request) {
     const file = incoming.get('file')
 
     const userId = incoming.get('userId') as string
+    const subjectId = incoming.get('subjectId') as string
 
     if (!(file instanceof File)) {
       return NextResponse.json(
@@ -229,42 +230,7 @@ export async function POST(req: Request) {
 
     if (storageError) {
       throw storageError
-    }
-
-    // -------------------------
-    // Find or create subject
-    // -------------------------
-
-    let subjectId: string
-
-    const { data: existingSubject } = await supabase
-      .from('subjects')
-      .select('id')
-      .eq('user_id', userId)
-      .ilike('name', subjectName)
-      .maybeSingle()
-
-    if (existingSubject) {
-      subjectId = existingSubject.id
-    } else {
-      const { data: newSubject, error: subjectError } =
-        await supabase
-          .from('subjects')
-          .insert({
-            user_id: userId,
-            name: subjectName,
-            icon: subjectIcon,
-            color: subjectColor,
-            })
-          .select('id')
-          .single()
-
-      if (subjectError) {
-        throw subjectError
-      }
-
-      subjectId = newSubject.id
-    }
+    }    
 
     // -------------------------
     // Save lecture

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { supabase } from '@/lib/supabase'
@@ -12,6 +12,29 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const [subjects, setSubjects] = useState<any[]>([])
+  const [subjectId, setSubjectId] = useState('')
+
+  useEffect(() => {
+    loadSubjects()
+  }, [])
+
+  async function loadSubjects() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return
+
+    const { data } = await supabase
+      .from('subjects')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('name')
+
+    setSubjects(data ?? [])
+  }
+
   function chooseFile(selectedFile: File | null) {
     if (!selectedFile) return
 
@@ -20,6 +43,11 @@ export default function UploadPage() {
 
   async function uploadLecture() {
     if (!file) return
+
+    if (!subjectId) {
+      alert('Please select a subject.')
+      return
+    }
 
     setLoading(true)
 
@@ -37,13 +65,12 @@ export default function UploadPage() {
 
       formData.append('file', file)
       formData.append('userId', user.id)
+      formData.append('subjectId', subjectId)
 
       const response = await axios.post(
         '/api/ocr',
         formData
       )
-
-      console.log(response.data)
 
       if (!response.data.success) {
         throw new Error(
@@ -69,20 +96,47 @@ export default function UploadPage() {
   return (
     <main className="min-h-screen bg-gray-50 px-6 py-12">
       <div className="mx-auto max-w-3xl">
+
         <h1 className="text-4xl font-bold">
           Upload Lecture
         </h1>
 
         <p className="mt-2 text-gray-500">
-          Upload a lecture image. SnapNotes will
-          automatically identify the subject,
-          organize your notes, generate a summary,
-          and create flashcards.
+          Upload a lecture image and choose a subject.
         </p>
+
+        <div className="mt-8">
+
+          <label className="mb-2 block font-medium">
+            Subject
+          </label>
+
+          <select
+            value={subjectId}
+            onChange={(e) =>
+              setSubjectId(e.target.value)
+            }
+            className="w-full rounded-xl border bg-white p-3"
+          >
+            <option value="">
+              Select Subject
+            </option>
+
+            {subjects.map((subject) => (
+              <option
+                key={subject.id}
+                value={subject.id}
+              >
+                {subject.icon} {subject.name}
+              </option>
+            ))}
+          </select>
+
+        </div>
 
         <div
           onClick={() => inputRef.current?.click()}
-          className="mt-10 cursor-pointer rounded-2xl border-2 border-dashed bg-white p-20 text-center transition hover:border-black"
+          className="mt-8 cursor-pointer rounded-2xl border-2 border-dashed bg-white p-20 text-center transition hover:border-black"
         >
           <h2 className="text-2xl font-semibold">
             Click to Upload
@@ -107,29 +161,28 @@ export default function UploadPage() {
 
         {file && (
           <div className="mt-8 rounded-xl bg-white p-6 shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-semibold">
-                  {file.name}
-                </p>
 
-                <p className="mt-1 text-sm text-gray-500">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
+            <p className="font-semibold">
+              {file.name}
+            </p>
 
-              <button
-                onClick={uploadLecture}
-                disabled={loading}
-                className="rounded-xl bg-black px-6 py-3 text-white disabled:opacity-50"
-              >
-                {loading
-                  ? 'Generating Notes...'
-                  : 'Upload & Generate'}
-              </button>
-            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              {(file.size / 1024 / 1024).toFixed(2)} MB
+            </p>
+
+            <button
+              onClick={uploadLecture}
+              disabled={loading}
+              className="mt-6 rounded-xl bg-black px-6 py-3 text-white disabled:opacity-50"
+            >
+              {loading
+                ? 'Generating Notes...'
+                : 'Upload & Generate'}
+            </button>
+
           </div>
         )}
+
       </div>
     </main>
   )
