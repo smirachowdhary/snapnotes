@@ -1,27 +1,148 @@
 import { NextResponse } from 'next/server'
 import sharp from 'sharp'
 import Groq from 'groq-sdk'
+import { createClient } from '@supabase/supabase-js'
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY!,
 })
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+type Flashcard = {
+  question: string
+  answer: string
+}
+
+type AIResponse = {
+  subject: string
+  subjectIcon: string
+  subjectColor: string
+  confidence: number
+  title: string
+  notes: string
+  summary: string
+  flashcards: Flashcard[]
+}
+
+async function askGroq(rawText: string): Promise<AIResponse> {
+  const completion = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+
+    temperature: 0.2,
+
+    response_format: {
+      type: 'json_object',
+    },
+
+    messages: [
+      {
+        role: 'system',
+content: `
+You are SnapNotes AI.
+
+Return ONLY valid JSON.
+
+{
+  "subject":"",
+  "subjectIcon":"",
+  "subjectColor":"",
+  "confidence":0,
+  "title":"",
+  "notes":"",
+  "summary":"",
+  "flashcards":[
+    {
+      "question":"",
+      "answer":""
+    }
+  ]
+}
+
+Rules
+
+- Never invent information.
+- Fix OCR mistakes.
+- Create clean study notes.
+- Generate 5-10 flashcards.
+- Summary should be 3-5 sentences.
+- Confidence must be between 0 and 1.
+
+Icons:
+
+Biology 🧬
+Chemistry ⚗️
+Physics ⚛️
+Math 📐
+Calculus 📐
+English 📖
+History 🏛️
+Computer Science 💻
+Economics 📈
+Psychology 🧠
+Art 🎨
+Music 🎵
+Other 📁
+
+Colors:
+
+Biology emerald
+Chemistry purple
+Physics blue
+Math orange
+Calculus orange
+English red
+History amber
+Computer Science cyan
+Economics green
+Psychology pink
+Art rose
+Music violet
+Other gray
+
+If you are not confident,
+return:
+
+subject = "Other"
+subjectIcon = "📁"
+subjectColor = "gray"
+confidence = 0
+`,
+      },
+      {
+        role: 'user',
+        content: rawText,
+      },
+    ],
+  })
+
+  const content =
+    completion.choices[0].message.content ?? '{}'
+
+  return JSON.parse(content)
+}
+
 export async function POST(req: Request) {
   try {
-    const incomingForm = await req.formData()
+    const incoming = await req.formData()
 
-    const file = incomingForm.get('file')
+    const file = incoming.get('file')
+
+    const userId = incoming.get('userId') as string
 
     if (!(file instanceof File)) {
       return NextResponse.json(
-        { error: 'No file uploaded' },
-        { status: 400 }
+        {
+          error: 'No file uploaded',
+        },
+        {
+          status: 400,
+        }
       )
     }
-
-    // -------------------------
-    // Improve image for OCR
-    // -------------------------
 
     const buffer = Buffer.from(await file.arrayBuffer())
 
@@ -38,13 +159,9 @@ export async function POST(req: Request) {
       .png()
       .toBuffer()
 
-    // -------------------------
-    // OCR.space
-    // -------------------------
+    const ocrForm = new FormData()
 
-    const formData = new FormData()
-
-    formData.append(
+    ocrForm.append(
       'file',
       new Blob([processed], {
         type: 'image/png',
@@ -52,112 +169,141 @@ export async function POST(req: Request) {
       'lecture.png'
     )
 
-    formData.append('apikey', process.env.OCR_SPACE_API_KEY!)
-    formData.append('language', 'eng')
-    formData.append('OCREngine', '2')
-    formData.append('scale', 'true')
-    formData.append('isOverlayRequired', 'false')
+    ocrForm.append(
+      'apikey',
+      process.env.OCR_SPACE_API_KEY!
+    )
+
+    ocrForm.append('language', 'eng')
+    ocrForm.append('OCREngine', '2')
+    ocrForm.append('scale', 'true')
+    ocrForm.append(
+      'isOverlayRequired',
+      'false'
+    )
 
     const ocrResponse = await fetch(
       'https://api.ocr.space/parse/image',
       {
         method: 'POST',
-        body: formData,
+        body: ocrForm,
       }
     )
 
-    const ocrResult = await ocrResponse.json()
+    const ocr = await ocrResponse.json()
 
     const rawText =
-      ocrResult?.ParsedResults?.[0]?.ParsedText ?? ''
+      ocr?.ParsedResults?.[0]?.ParsedText ?? ''
 
     if (!rawText.trim()) {
       return NextResponse.json({
-        text: '',
+        error: 'No text detected.',
       })
     }
 
+    const ai = await askGroq(rawText)
+        // -------------------------
+    // Upload original image
     // -------------------------
-    // Clean OCR with Groq
+
+    const fileName = `${userId}/${Date.now()}-${file.name}`
+
+    const { error: storageError } = await supabase.storage
+      .from('lecture-images')
+      .upload(fileName, file)
+
+    if (storageError) {
+      throw storageError
+    }
+
+    // -------------------------
+    // Find or create subject
     // -------------------------
 
-    const completion =
-      await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+    let subjectId: string
 
-        temperature: 0.1,
+    const { data: existingSubject } = await supabase
+      .from('subjects')
+      .select('id')
+      .eq('user_id', userId)
+      .ilike('name', ai.subject)
+      .maybeSingle()
 
-        messages: [
-          {
-            role: 'system',
-            content: `
-You are an expert note-taking assistant.
+    if (existingSubject) {
+      subjectId = existingSubject.id
+    } else {
+      const { data: newSubject, error: subjectError } =
+        await supabase
+          .from('subjects')
+          .insert({
+            user_id: userId,
+            name: ai.subject,
+          })
+          .select('id')
+          .single()
 
-Your job is to transform OCR extracted lecture notes into beautiful, organized study notes.
+      if (subjectError) {
+        throw subjectError
+      }
 
-IMPORTANT RULES
+      subjectId = newSubject.id
+    }
 
-• Never invent facts.
-• Never add information not present.
-• Never remove important information.
-• Correct OCR mistakes.
-• Correct spelling and grammar.
-• Rewrite sentences for clarity.
-• Group related ideas together.
-• Use Markdown formatting.
+    // -------------------------
+    // Save lecture
+    // -------------------------
 
-Always use this format when possible:
+    const { data: lecture, error: lectureError } =
+      await supabase
+        .from('lectures')
+        .insert({
+          user_id: userId,
+          subject_id: subjectId,
 
-# Main Topic
+          title: ai.title,
 
-## Definition
-Explain the definition clearly.
+          image_url: fileName,
 
-## Key Concepts
-• Bullet list
+          ocr_text: rawText,
 
-## Important Facts
-• Bullet list
+          notes: ai.notes,
 
-## Processes / Steps
-1.
-2.
-3.
+          summary: ai.summary,
 
-## Equations
-Keep equations exactly as written.
+          flashcards: ai.flashcards,
+        })
+        .select()
+        .single()
 
-## Vocabulary
-| Term | Meaning |
-|------|---------|
+    if (lectureError) {
+      throw lectureError
+    }
 
-## Summary
-2-5 sentence recap.
-
-If information for a section doesn't exist, simply omit that section.
-
-Return ONLY the formatted notes.
-`,
-          },
-          {
-            role: 'user',
-            content: rawText,
-          },
-        ],
-      })
-
-    const cleaned =
-      completion.choices[0]?.message?.content?.trim() ??
-      rawText
+    // -------------------------
+    // Return to frontend
+    // -------------------------
 
     return NextResponse.json({
-      text: cleaned,
+      success: true,
+
+      lecture,
+
+      subject: ai.subject,
+
+      title: ai.title,
+
+      notes: ai.notes,
+
+      summary: ai.summary,
+
+      flashcards: ai.flashcards,
     })
   } catch (err: any) {
     console.error(err)
 
     return NextResponse.json(
       {
+        success: false,
         error: err.message,
       },
       {

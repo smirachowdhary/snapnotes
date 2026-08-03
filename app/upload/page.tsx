@@ -10,14 +10,12 @@ export default function UploadPage() {
   const router = useRouter()
 
   const [file, setFile] = useState<File | null>(null)
-  const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
 
   function chooseFile(selectedFile: File | null) {
     if (!selectedFile) return
 
     setFile(selectedFile)
-    setTitle(selectedFile.name.replace(/\.[^/.]+$/, ''))
   }
 
   async function uploadLecture() {
@@ -36,43 +34,33 @@ export default function UploadPage() {
       }
 
       const formData = new FormData()
+
       formData.append('file', file)
+      formData.append('userId', user.id)
 
-      const response = await axios.post('/api/ocr', formData)
+      const response = await axios.post(
+        '/api/ocr',
+        formData
+      )
 
-      console.log('OCR API Response:', response.data)
+      console.log(response.data)
 
-      const extractedText =
-        response.data.text ??
-        response.data?.ParsedResults?.[0]?.ParsedText ??
-        ''
-
-      console.log('Extracted Text:', extractedText)
-
-      const fileName = `${user.id}/${Date.now()}-${file.name}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('lecture-images')
-        .upload(fileName, file)
-
-      if (uploadError) throw uploadError
-
-      const { error: dbError } = await supabase
-        .from('lectures')
-        .insert({
-          user_id: user.id,
-          title: title.trim() || file.name,
-          image_url: fileName,
-          ocr_text: extractedText,
-        })
-
-      if (dbError) throw dbError
+      if (!response.data.success) {
+        throw new Error(
+          response.data.error || 'Upload failed'
+        )
+      }
 
       router.push('/dashboard')
       router.refresh()
-    } catch (error: any) {
-      console.error(error)
-      alert(error?.message || 'Upload failed')
+    } catch (err: any) {
+      console.error(err)
+
+      alert(
+        err?.response?.data?.error ||
+          err?.message ||
+          'Upload failed.'
+      )
     } finally {
       setLoading(false)
     }
@@ -80,60 +68,66 @@ export default function UploadPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 px-6 py-12">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-3xl">
         <h1 className="text-4xl font-bold">
           Upload Lecture
         </h1>
 
         <p className="mt-2 text-gray-500">
-          Upload a lecture image and give it a title.
+          Upload a lecture image. SnapNotes will
+          automatically identify the subject,
+          organize your notes, generate a summary,
+          and create flashcards.
         </p>
 
         <div
           onClick={() => inputRef.current?.click()}
-          className="mt-10 cursor-pointer rounded-2xl border-2 border-dashed bg-white p-16 text-center hover:border-black"
+          className="mt-10 cursor-pointer rounded-2xl border-2 border-dashed bg-white p-20 text-center transition hover:border-black"
         >
           <h2 className="text-2xl font-semibold">
             Click to Upload
           </h2>
 
-          <p className="mt-2 text-gray-500">
+          <p className="mt-3 text-gray-500">
             PNG • JPG • JPEG
           </p>
 
           <input
-            ref={inputRef}
             hidden
+            ref={inputRef}
             type="file"
             accept="image/*"
-            onChange={(e) => chooseFile(e.target.files?.[0] ?? null)}
+            onChange={(e) =>
+              chooseFile(
+                e.target.files?.[0] ?? null
+              )
+            }
           />
         </div>
 
         {file && (
           <div className="mt-8 rounded-xl bg-white p-6 shadow">
-            <label className="mb-2 block text-sm font-medium">
-              Lecture Title
-            </label>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold">
+                  {file.name}
+                </p>
 
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-xl border p-3"
-              placeholder="e.g. Biology Chapter 3"
-            />
+                <p className="mt-1 text-sm text-gray-500">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
 
-            <p className="mt-4 text-sm text-gray-500">
-              {file.name}
-            </p>
-
-            <button
-              onClick={uploadLecture}
-              disabled={loading}
-              className="mt-6 rounded-xl bg-black px-6 py-3 text-white disabled:opacity-50"
-            >
-              {loading ? 'Uploading...' : 'Upload & Extract'}
-            </button>
+              <button
+                onClick={uploadLecture}
+                disabled={loading}
+                className="rounded-xl bg-black px-6 py-3 text-white disabled:opacity-50"
+              >
+                {loading
+                  ? 'Generating Notes...'
+                  : 'Upload & Generate'}
+              </button>
+            </div>
           </div>
         )}
       </div>
