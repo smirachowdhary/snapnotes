@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import sharp from 'sharp'
-import { GoogleGenAI } from '@google/genai'
+import Groq from 'groq-sdk'
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY!,
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY!,
 })
 
 export async function POST(req: Request) {
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     }
 
     // -------------------------
-    // Preprocess image
+    // Improve image for OCR
     // -------------------------
 
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -46,7 +46,9 @@ export async function POST(req: Request) {
 
     formData.append(
       'file',
-      new Blob([processed], { type: 'image/png' }),
+      new Blob([processed], {
+        type: 'image/png',
+      }),
       'lecture.png'
     )
 
@@ -76,75 +78,56 @@ export async function POST(req: Request) {
     }
 
     // -------------------------
-    // Gemini cleanup
+    // Clean OCR with Groq
     // -------------------------
 
-    try {
-      const result = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: `
-You are cleaning OCR lecture notes.
+    const completion =
+      await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+
+        temperature: 0.1,
+
+        messages: [
+          {
+            role: 'system',
+            content: `
+You clean OCR extracted lecture notes.
 
 Rules:
+
 - Never invent information.
 - Never remove information.
-- Correct OCR mistakes only.
-- Preserve bullets.
-- Preserve numbering.
+- Fix obvious OCR mistakes.
+- Correct capitalization.
+- Correct punctuation.
+- Preserve bullet points.
+- Preserve numbered lists.
+- Preserve equations.
+- Preserve headings.
 - Preserve formatting.
 - Return ONLY the cleaned notes.
-
-${rawText}
 `,
+          },
+          {
+            role: 'user',
+            content: rawText,
+          },
+        ],
       })
 
-      return NextResponse.json({
-        text: result.text?.trim() || rawText,
-      })
-    } catch (err: any) {
-      console.error('==============================')
-      console.error('GEMINI ERROR')
-      console.error('message:', err?.message)
-      console.error('status:', err?.status)
-      console.error('name:', err?.name)
-      console.error('stack:', err?.stack)
+    const cleaned =
+      completion.choices[0]?.message?.content?.trim() ??
+      rawText
 
-      if (err?.error) {
-        console.error(
-          'error:',
-          JSON.stringify(err.error, null, 2)
-        )
-      }
-
-      if (err?.cause) {
-        console.error(
-          'cause:',
-          JSON.stringify(err.cause, null, 2)
-        )
-      }
-
-      console.error(
-        'FULL OBJECT:',
-        JSON.stringify(
-          err,
-          Object.getOwnPropertyNames(err),
-          2
-        )
-      )
-      console.error('==============================')
-
-      // Return OCR anyway
-      return NextResponse.json({
-        text: rawText,
-      })
-    }
+    return NextResponse.json({
+      text: cleaned,
+    })
   } catch (err: any) {
-    console.error('SERVER ERROR')
     console.error(err)
 
     return NextResponse.json(
       {
-        error: err?.message || 'Unknown server error',
+        error: err.message,
       },
       {
         status: 500,
