@@ -52,7 +52,7 @@ export default function DashboardPage() {
 
   async function logout() {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/')
   }
 
   const filtered = useMemo(() => {
@@ -143,7 +143,7 @@ export default function DashboardPage() {
           </h2>
 
           {recent ? (
-            <Link href={`/lecture/${recent.id}`}>
+            <Link href={`/lectures/${recent.id}`}>
               <div className="rounded-2xl bg-white p-6 shadow transition hover:shadow-lg">
                 <div className="mb-3 inline-flex rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
                   {recent.subject || 'Uncategorized'}
@@ -217,7 +217,7 @@ export default function DashboardPage() {
                     {notes.slice(0, 3).map((note) => (
                       <Link
                         key={note.id}
-                        href={`/lecture/${note.id}`}
+                        href={`/lectures/${note.id}`}
                       >
                         <div className="rounded-xl border p-4 transition hover:bg-gray-50">
                           <h4 className="font-semibold">
