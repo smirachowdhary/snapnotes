@@ -202,7 +202,22 @@ export async function POST(req: Request) {
     }
 
     const ai = await askGroq(rawText)
-        // -------------------------
+
+    let subjectName = ai.subject?.trim() || 'Other'
+    let subjectIcon = ai.subjectIcon || '📁'
+    let subjectColor = ai.subjectColor || 'gray'
+
+    if (
+    ai.confidence < 0.7 ||
+    subjectName.length === 0 ||
+    subjectName.toLowerCase() === 'unknown'
+    ) {
+    subjectName = 'Other'
+    subjectIcon = '📁'
+    subjectColor = 'gray'
+    }
+
+    // -------------------------
     // Upload original image
     // -------------------------
 
@@ -226,7 +241,7 @@ export async function POST(req: Request) {
       .from('subjects')
       .select('id')
       .eq('user_id', userId)
-      .ilike('name', ai.subject)
+      .ilike('name', subjectName)
       .maybeSingle()
 
     if (existingSubject) {
@@ -237,8 +252,10 @@ export async function POST(req: Request) {
           .from('subjects')
           .insert({
             user_id: userId,
-            name: ai.subject,
-          })
+            name: subjectName,
+            icon: subjectIcon,
+            color: subjectColor,
+            })
           .select('id')
           .single()
 
@@ -288,7 +305,7 @@ export async function POST(req: Request) {
 
       lecture,
 
-      subject: ai.subject,
+      subject: subjectName,
 
       title: ai.title,
 
