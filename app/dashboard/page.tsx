@@ -71,15 +71,15 @@ export default function DashboardPage() {
   }
 
   async function loadComments() {
-    const { data } = await supabase
-      .from('dashboard_comments')
-      .select('*')
-      .order('created_at', { ascending: false })
+      const { data } = await supabase
+        .from('dashboard_comments')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-    setComments(data ?? [])
-  }
+      setComments(data ?? [])
+    }
 
-  async function postComment() {
+    async function postComment() {
     if (!newComment.trim()) return
 
     const {
@@ -88,7 +88,7 @@ export default function DashboardPage() {
 
     if (!user) return
 
-    await supabase
+    const { error } = await supabase
       .from('dashboard_comments')
       .insert({
         user_id: user.id,
@@ -97,12 +97,18 @@ export default function DashboardPage() {
           user.user_metadata?.name ||
           user.email?.split('@')[0] ||
           'Anonymous',
-        comment: newComment,
+        comment: newComment.trim(),
       })
+
+    if (error) {
+      console.error(error)
+      alert(error.message)
+      return
+    }
 
     setNewComment('')
 
-    loadComments()
+    await loadComments()
   }
 
   async function logout() {
