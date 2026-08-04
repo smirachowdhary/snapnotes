@@ -28,9 +28,13 @@ export default function DashboardPage() {
   const [lectures, setLectures] = useState<Lecture[]>([])
   const [search, setSearch] = useState('')
 
+  const [comments, setComments] = useState<any[]>([])
+  const [newComment, setNewComment] = useState('')
+
   useEffect(() => {
     checkUser()
     loadLectures()
+    loadComments()
   }, [])
 
   async function checkUser() {
@@ -64,6 +68,41 @@ export default function DashboardPage() {
     }
 
     setLoading(false)
+  }
+
+  async function loadComments() {
+    const { data } = await supabase
+      .from('dashboard_comments')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    setComments(data ?? [])
+  }
+
+  async function postComment() {
+    if (!newComment.trim()) return
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return
+
+    await supabase
+      .from('dashboard_comments')
+      .insert({
+        user_id: user.id,
+        user_email:
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.email?.split('@')[0] ||
+          'Anonymous',
+        comment: newComment,
+      })
+
+    setNewComment('')
+
+    loadComments()
   }
 
   async function logout() {
@@ -185,6 +224,76 @@ export default function DashboardPage() {
               </p>
             </div>
           )}
+        </section>
+
+        {/* Team Discussion */}
+
+        <section className="mb-10">
+          <h2 className="mb-4 text-2xl font-bold">
+            💬 Team Discussion
+          </h2>
+
+          <div className="rounded-2xl bg-white p-6 shadow">
+
+            <div className="flex gap-3">
+
+              <input
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Share an update..."
+                className="flex-1 rounded-xl border p-3"
+              />
+
+              <button
+                onClick={postComment}
+                className="rounded-xl bg-blue-600 px-6 text-white hover:bg-blue-700"
+              >
+                Post
+              </button>
+
+            </div>
+
+            <div className="mt-8 space-y-5">
+
+              {comments.length === 0 ? (
+                <p className="text-gray-500">
+                  No updates yet.
+                </p>
+              ) : (
+                comments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="rounded-xl border bg-gray-50 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+
+                      <p className="font-semibold">
+                        <span className="font-semibold">
+                          👤 {comment.user_email}
+                        </span>
+                      </p>
+
+                      <p className="text-xs text-gray-400">
+                        {new Date(comment.created_at).toLocaleDateString()} •{' '}
+                        {new Date(comment.created_at).toLocaleTimeString([], {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </p>
+
+                    </div>
+
+                    <p className="mt-3 whitespace-pre-wrap text-gray-700">
+                      {comment.comment}
+                    </p>
+
+                  </div>
+                ))
+              )}
+
+            </div>
+
+          </div>
         </section>
 
         {/* Subject Cards */}
