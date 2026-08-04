@@ -133,7 +133,7 @@ export default function SubjectPage() {
             {lectures.map((lecture) => (
               <Link
                 key={lecture.id}
-                href={`/lecture/${lecture.id}`}
+                href={`/lectures/${lecture.id}`}
               >
                 <div className="rounded-2xl bg-white p-6 shadow transition hover:shadow-lg">
 
