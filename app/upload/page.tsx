@@ -9,7 +9,7 @@ export default function UploadPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
 
   const [subjects, setSubjects] = useState<any[]>([])
@@ -35,14 +35,14 @@ export default function UploadPage() {
     setSubjects(data ?? [])
   }
 
-  function chooseFile(selectedFile: File | null) {
-    if (!selectedFile) return
+  function chooseFiles(selectedFiles: FileList | null) {
+    if (!selectedFiles) return
 
-    setFile(selectedFile)
+    setFiles(Array.from(selectedFiles))
   }
 
   async function uploadLecture() {
-    if (!file) return
+    if (files.length === 0) return
 
     if (!subjectId) {
       alert('Please select a subject.')
@@ -61,21 +61,23 @@ export default function UploadPage() {
         return
       }
 
-      const formData = new FormData()
+      for (const file of files) {
+        const formData = new FormData()
 
-      formData.append('file', file)
-      formData.append('userId', user.id)
-      formData.append('subjectId', subjectId)
+        formData.append('file', file)
+        formData.append('userId', user.id)
+        formData.append('subjectId', subjectId)
 
-      const response = await axios.post(
-        '/api/ocr',
-        formData
-      )
-
-      if (!response.data.success) {
-        throw new Error(
-          response.data.error || 'Upload failed'
+        const response = await axios.post(
+          '/api/ocr',
+          formData
         )
+
+        if (!response.data.success) {
+          throw new Error(
+            response.data.error || `Failed to upload ${file.name}`
+          )
+        }
       }
 
       router.push('/dashboard')
@@ -150,24 +152,27 @@ export default function UploadPage() {
             hidden
             ref={inputRef}
             type="file"
+            multiple
             accept="image/*"
             onChange={(e) =>
-              chooseFile(
-                e.target.files?.[0] ?? null
-              )
+              chooseFiles(e.target.files)
             }
           />
         </div>
 
-        {file && (
+        {files.length > 0 && (
           <div className="mt-8 rounded-xl bg-white p-6 shadow">
 
             <p className="font-semibold">
-              {file.name}
+              {files.length} file(s) selected
             </p>
 
             <p className="mt-1 text-sm text-gray-500">
-              {(file.size / 1024 / 1024).toFixed(2)} MB
+              {files.map((file) => (
+                <p key={file.name} className="text-sm text-gray-500">
+                  {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                </p>
+              ))}
             </p>
 
             <button
